@@ -7,8 +7,12 @@ import {
   CirclePlus,
   Coins,
   HandCoins,
+  LayoutDashboard,
   MoreHorizontal,
   PiggyBank,
+  ScrollText,
+  Shapes,
+  SlidersHorizontal,
   Target,
   Wallet,
 } from "lucide-react";
@@ -110,6 +114,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 type DeleteTarget =
   | { type: "transaction" | "category" | "goal"; id: string; label: string }
   | null;
+
+type TabKey = "overview" | "transactions" | "budget" | "goals" | "categories";
 
 function kpiMeta(currency: string) {
   return [
@@ -289,6 +295,8 @@ export function BudgetApp() {
   });
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddType, setQuickAddType] = useState<TransactionType>("expense");
+  const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [transactionDialogOpen, setTransactionDialogOpen] = useState(false);
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
@@ -332,6 +340,11 @@ export function BudgetApp() {
     setEditingTransactionId(null);
     setQuickAddType(type);
     setTransactionDialogOpen(true);
+  }, []);
+
+  const openMobileTab = useCallback((tab: TabKey) => {
+    setActiveTab(tab);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
   useEffect(() => {
@@ -403,7 +416,7 @@ export function BudgetApp() {
 
   return (
     <>
-      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 pb-28 sm:p-6 sm:pb-8">
+      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 pb-40 sm:p-6 sm:pb-8">
         <header className="premium-panel overflow-hidden border-none bg-[linear-gradient(120deg,rgba(16,166,105,0.14)_0%,rgba(15,123,155,0.10)_52%,rgba(255,255,255,0)_100%)] p-5 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">
@@ -474,8 +487,23 @@ export function BudgetApp() {
           </div>
         </header>
 
-        <Tabs defaultValue="overview" className="gap-4">
-          <div className="overflow-x-auto pb-1">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabKey)} className="gap-4">
+          <div className="md:hidden">
+            <Select value={activeTab} onValueChange={(value) => setActiveTab(value as TabKey)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Section" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="overview">Vue globale</SelectItem>
+                <SelectItem value="transactions">Transactions</SelectItem>
+                <SelectItem value="budget">Budget</SelectItem>
+                <SelectItem value="goals">Objectifs</SelectItem>
+                <SelectItem value="categories">Categories</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="hidden overflow-x-auto pb-1 md:block">
             <TabsList className="h-11 w-max rounded-xl border bg-card/85 p-1 backdrop-blur">
               <TabsTrigger value="overview">Vue globale</TabsTrigger>
               <TabsTrigger value="transactions">Transactions</TabsTrigger>
@@ -486,7 +514,7 @@ export function BudgetApp() {
           </div>
 
           <TabsContent value="overview" className="space-y-4">
-            <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {kpiMeta(currency).map((item) => {
                 const Icon = item.icon;
                 return (
@@ -514,7 +542,7 @@ export function BudgetApp() {
                   <CardTitle className="text-base">Tendance 6 mois</CardTitle>
                   <CardDescription>Evolution revenus / depenses</CardDescription>
                 </CardHeader>
-                <CardContent className="h-72">
+                <CardContent className="h-64 md:h-72">
                   {trends.length === 0 ? (
                     <EmptyState
                       title="Ajoutez des transactions pour alimenter le graphique."
@@ -543,7 +571,7 @@ export function BudgetApp() {
                   <CardTitle className="text-base">Top depenses</CardTitle>
                   <CardDescription>Categories les plus consommatrices</CardDescription>
                 </CardHeader>
-                <CardContent className="h-72">
+                <CardContent className="h-64 md:h-72">
                   {topCategories.length === 0 ? (
                     <EmptyState
                       title="Aucune depense sur cette periode."
@@ -582,7 +610,27 @@ export function BudgetApp() {
                     Nouvelle transaction
                   </Button>
                 </div>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                <div className="grid gap-2 md:hidden">
+                  <Input
+                    placeholder="Recherche rapide"
+                    value={filters.search}
+                    onChange={(event) =>
+                      setFilters((current) => ({ ...current, search: event.target.value }))
+                    }
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" onClick={() => setMobileFiltersOpen(true)}>
+                      <SlidersHorizontal className="size-4" />
+                      Filtres
+                    </Button>
+                    <Button onClick={() => openTransactionDialog("expense")}>
+                      <CirclePlus className="size-4" />
+                      Ajouter
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="hidden gap-2 md:grid md:grid-cols-2 lg:grid-cols-5">
                   <Input
                     placeholder="Recherche"
                     value={filters.search}
@@ -753,6 +801,93 @@ export function BudgetApp() {
                 )}
               </CardContent>
             </Card>
+
+            <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+              <SheetContent side="bottom" className="h-auto max-h-[88vh]">
+                <SheetHeader className="mb-4">
+                  <SheetTitle>Filtres transactions</SheetTitle>
+                  <SheetDescription>Affinez votre historique mobile.</SheetDescription>
+                </SheetHeader>
+
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Type</p>
+                    <Select
+                      value={filters.type}
+                      onValueChange={(value) =>
+                        setFilters((current) => ({
+                          ...current,
+                          type: value as TransactionFilters["type"],
+                        }))
+                      }
+                    >
+                      <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tous types</SelectItem>
+                        <SelectItem value="income">Revenus</SelectItem>
+                        <SelectItem value="expense">Depenses</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Categorie</p>
+                    <Select
+                      value={filters.categoryId}
+                      onValueChange={(value) =>
+                        setFilters((current) => ({ ...current, categoryId: value }))
+                      }
+                    >
+                      <SelectTrigger><SelectValue placeholder="Categorie" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Toutes categories</SelectItem>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Mois</p>
+                    <Select
+                      value={filters.month}
+                      onValueChange={(value) =>
+                        setFilters((current) => ({ ...current, month: value }))
+                      }
+                    >
+                      <SelectTrigger><SelectValue placeholder="Mois" /></SelectTrigger>
+                      <SelectContent>
+                        {monthOptions.map((month) => (
+                          <SelectItem key={month} value={month}>
+                            {formatMonthLabel(month, locale)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-2">
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        setFilters({
+                          month: selectedMonth,
+                          categoryId: "all",
+                          type: "all",
+                          search: "",
+                        })
+                      }
+                    >
+                      Reinitialiser
+                    </Button>
+                    <Button onClick={() => setMobileFiltersOpen(false)}>Appliquer</Button>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
           </TabsContent>
 
           <TabsContent value="budget">
@@ -792,7 +927,7 @@ export function BudgetApp() {
 
           <TabsContent value="goals" className="space-y-4">
             <div className="flex justify-end">
-              <Button onClick={() => { setEditingGoalId(null); setGoalDialogOpen(true); }}>
+              <Button className="w-full sm:w-auto" onClick={() => { setEditingGoalId(null); setGoalDialogOpen(true); }}>
                 <Target className="size-4" /> Nouvel objectif
               </Button>
             </div>
@@ -816,38 +951,104 @@ export function BudgetApp() {
 
           <TabsContent value="categories" className="space-y-4">
             <div className="flex justify-end">
-              <Button onClick={() => { setEditingCategoryId(null); setCategoryDialogOpen(true); }}>
+              <Button className="w-full sm:w-auto" onClick={() => { setEditingCategoryId(null); setCategoryDialogOpen(true); }}>
                 <CirclePlus className="size-4" /> Nouvelle categorie
               </Button>
             </div>
             <Card className="premium-panel">
               <CardHeader><CardTitle className="text-base">Categories</CardTitle><CardDescription>Organisation des revenus et depenses</CardDescription></CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader><TableRow><TableHead>Nom</TableHead><TableHead>Type</TableHead><TableHead>Couleur</TableHead><TableHead>Statut</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
-                  <TableBody>
-                    {categories.map((category) => {
-                      const Icon = getCategoryIcon(category.icon);
-                      return (
-                        <TableRow key={category.id}>
-                          <TableCell><div className="flex items-center gap-2"><Icon className="size-4 text-muted-foreground" /><span>{category.name}</span></div></TableCell>
-                          <TableCell><Badge variant={category.type === "income" ? "secondary" : "outline"}>{category.type === "income" ? "Revenu" : "Depense"}</Badge></TableCell>
-                          <TableCell><span className="inline-flex items-center gap-2 text-sm text-muted-foreground"><span className="inline-block size-3 rounded-full border" style={{ backgroundColor: category.color ?? "#64748b" }} />{category.color ?? "auto"}</span></TableCell>
-                          <TableCell>{category.isDefault ? <Badge variant="outline">Defaut</Badge> : <Badge variant="secondary">Personnalisee</Badge>}</TableCell>
-                          <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="size-4" /></Button></DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => { setEditingCategoryId(category.id); setCategoryDialogOpen(true); }}>Modifier</DropdownMenuItem>
-                                {!category.isDefault ? <DropdownMenuItem className="text-destructive" onClick={() => setDeleteTarget({ type: "category", id: category.id, label: `categorie ${category.name}` })}>Supprimer</DropdownMenuItem> : null}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                <div className="space-y-3 md:hidden">
+                  {categories.map((category) => {
+                    const Icon = getCategoryIcon(category.icon);
+                    return (
+                      <article key={category.id} className="rounded-xl border bg-card p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <Icon className="size-4 text-muted-foreground" />
+                            <div>
+                              <p className="font-medium">{category.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {category.isDefault ? "Categorie par defaut" : "Categorie personnalisee"}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge variant={category.type === "income" ? "secondary" : "outline"}>
+                            {category.type === "income" ? "Revenu" : "Depense"}
+                          </Badge>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between">
+                          <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                            <span
+                              className="inline-block size-3 rounded-full border"
+                              style={{ backgroundColor: category.color ?? "#64748b" }}
+                            />
+                            {category.color ?? "Couleur auto"}
+                          </span>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="size-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setEditingCategoryId(category.id);
+                                  setCategoryDialogOpen(true);
+                                }}
+                              >
+                                Modifier
+                              </DropdownMenuItem>
+                              {!category.isDefault ? (
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onClick={() =>
+                                    setDeleteTarget({
+                                      type: "category",
+                                      id: category.id,
+                                      label: `categorie ${category.name}`,
+                                    })
+                                  }
+                                >
+                                  Supprimer
+                                </DropdownMenuItem>
+                              ) : null}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader><TableRow><TableHead>Nom</TableHead><TableHead>Type</TableHead><TableHead>Couleur</TableHead><TableHead>Statut</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
+                    <TableBody>
+                      {categories.map((category) => {
+                        const Icon = getCategoryIcon(category.icon);
+                        return (
+                          <TableRow key={category.id}>
+                            <TableCell><div className="flex items-center gap-2"><Icon className="size-4 text-muted-foreground" /><span>{category.name}</span></div></TableCell>
+                            <TableCell><Badge variant={category.type === "income" ? "secondary" : "outline"}>{category.type === "income" ? "Revenu" : "Depense"}</Badge></TableCell>
+                            <TableCell><span className="inline-flex items-center gap-2 text-sm text-muted-foreground"><span className="inline-block size-3 rounded-full border" style={{ backgroundColor: category.color ?? "#64748b" }} />{category.color ?? "auto"}</span></TableCell>
+                            <TableCell>{category.isDefault ? <Badge variant="outline">Defaut</Badge> : <Badge variant="secondary">Personnalisee</Badge>}</TableCell>
+                            <TableCell>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="size-4" /></Button></DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => { setEditingCategoryId(category.id); setCategoryDialogOpen(true); }}>Modifier</DropdownMenuItem>
+                                  {!category.isDefault ? <DropdownMenuItem className="text-destructive" onClick={() => setDeleteTarget({ type: "category", id: category.id, label: `categorie ${category.name}` })}>Supprimer</DropdownMenuItem> : null}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -855,9 +1056,64 @@ export function BudgetApp() {
       </main>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 p-3 backdrop-blur sm:hidden">
-        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-2">
-          <Button onClick={() => openQuickAdd("expense")} className="h-11"><Coins className="size-4" />Depense</Button>
-          <Button variant="secondary" onClick={() => openQuickAdd("income")} className="h-11"><HandCoins className="size-4" />Revenu</Button>
+        <div className="mx-auto max-w-7xl space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <Button onClick={() => openQuickAdd("expense")} className="h-11">
+              <Coins className="size-4" />
+              Depense
+            </Button>
+            <Button variant="secondary" onClick={() => openQuickAdd("income")} className="h-11">
+              <HandCoins className="size-4" />
+              Revenu
+            </Button>
+          </div>
+          <div className="grid grid-cols-5 gap-1 rounded-xl border bg-card/90 p-1">
+            <Button
+              size="sm"
+              variant={activeTab === "overview" ? "default" : "ghost"}
+              className="h-12 flex-col gap-0.5 px-1 text-[10px]"
+              onClick={() => openMobileTab("overview")}
+            >
+              <LayoutDashboard className="size-4" />
+              <span>Accueil</span>
+            </Button>
+            <Button
+              size="sm"
+              variant={activeTab === "transactions" ? "default" : "ghost"}
+              className="h-12 flex-col gap-0.5 px-1 text-[10px]"
+              onClick={() => openMobileTab("transactions")}
+            >
+              <ScrollText className="size-4" />
+              <span>Mouv</span>
+            </Button>
+            <Button
+              size="sm"
+              variant={activeTab === "budget" ? "default" : "ghost"}
+              className="h-12 flex-col gap-0.5 px-1 text-[10px]"
+              onClick={() => openMobileTab("budget")}
+            >
+              <PiggyBank className="size-4" />
+              <span>Budget</span>
+            </Button>
+            <Button
+              size="sm"
+              variant={activeTab === "goals" ? "default" : "ghost"}
+              className="h-12 flex-col gap-0.5 px-1 text-[10px]"
+              onClick={() => openMobileTab("goals")}
+            >
+              <Target className="size-4" />
+              <span>Obj</span>
+            </Button>
+            <Button
+              size="sm"
+              variant={activeTab === "categories" ? "default" : "ghost"}
+              className="h-12 flex-col gap-0.5 px-1 text-[10px]"
+              onClick={() => openMobileTab("categories")}
+            >
+              <Shapes className="size-4" />
+              <span>Cat</span>
+            </Button>
+          </div>
         </div>
       </div>
 
